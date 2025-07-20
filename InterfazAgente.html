@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAG OpenEvidence</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+
+        .header p {
+            opacity: 0.9;
+            font-size: 1.1em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .section {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            border-left: 5px solid #667eea;
+        }
+
+        .section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .file-upload {
+            border: 2px dashed #667eea;
+            border-radius: 10px;
+            padding: 30px;
+            text-align: center;
+            background: white;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload:hover {
+            border-color: #764ba2;
+            background: #f8f9ff;
+        }
+
+        .file-upload.dragover {
+            border-color: #28a745;
+            background: #f0fff4;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-icon {
+            font-size: 3em;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .document-list {
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+
+        .document-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .document-info {
+            flex: 1;
+        }
+
+        .document-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .document-meta {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .document-actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            font-size: 0.9em;
+            padding: 8px 15px;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .btn-small {
+            font-size: 0.9em;
+            padding: 8px 15px;
+        }
+
+        .chat-section {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+        }
+
+        .question-input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            font-size: 1.1em;
+            resize: vertical;
+            min-height: 60px;
+            margin-bottom: 15px;
+        }
+
+        .question-input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .answer-section {
+            background: white;
+            border-radius: 10px;
+            padding: 25px;
+            margin-top: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        .answer-content {
+            line-height: 1.6;
+            color: #333;
+            font-size: 1.05em;
+        }
+
+        .sources {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e9ecef;
+        }
+
+        .source-item {
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            border-left: 4px solid #667eea;
+        }
+
+        .source-title {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+        }
+
+        .source-type {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 30px;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 5px solid #f3f3f3;
+            border-top: 5px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 15px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .stat-item {
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            flex: 1;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9em;
+            margin-top: 5px;
+        }
+
+        .checkbox {
+            margin-right: 10px;
+        }
+
+        .selected-actions {
+            margin-top: 15px;
+            padding: 15px;
+            background: #fff3cd;
+            border-radius: 8px;
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+                padding: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔬 RAG OpenEvidence</h1>
+            <p>Sistema inteligente de búsqueda en documentos con respaldo web</p>
+        </div>
+
+        <div class="main-content">
+            <!-- Sección de Carga de Archivos -->
+            <div class="section">
+                <h2>📁 Gestión de Documentos</h2>
+                
+                <!-- Estadísticas -->
+                <div class="stats">
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalDocs">0</div>
+                        <div class="stat-label">Documentos</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-number" id="totalChunks">0</div>
+                        <div class="stat-label">Fragmentos</div>
+                    </div>
+                </div>
+
+                <!-- Área de carga -->
+                <div class="file-upload" id="fileUpload">
+                    <div class="upload-icon">📄</div>
+                    <h3>Arrastra archivos aquí</h3>
+                    <p>O haz clic para seleccionar</p>
+                    <p><small>Soporta: PDF, DOCX, TXT, CSV, XLSX</small></p>
+                    <input type="file" id="fileInput" class="file-input" multiple accept=".pdf,.docx,.txt,.csv,.xlsx,.doc,.xls">
+                </div>
+
+                <button class="btn btn-primary" id="refreshDocs" style="margin-top: 15px;">
+                    🔄 Actualizar Lista
+                </button>
+
+                <!-- Lista de documentos -->
+                <div class="document-list" id="documentList">
+                    <!-- Los documentos se cargarán aquí -->
+                </div>
+
+                <!-- Acciones para documentos seleccionados -->
+                <div class="selected-actions" id="selectedActions">
+                    <button class="btn btn-danger btn-small" id="deleteSelected">
+                        🗑️ Eliminar Seleccionados
+                    </button>
+                    <button class="btn btn-danger btn-small" id="clearAll">
+                        💥 Limpiar Todo
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sección de Configuración -->
+            <div class="section">
+                <h2>⚙️ Sistema</h2>
+                
+                <div style="background: white; padding: 20px; border-radius: 10px; margin-bottom: 20px;">
+                    <h4>Estado del Sistema</h4>
+                    <div id="systemStatus">
+                        <p>🔄 Verificando conexiones...</p>
+                    </div>
+                </div>
+
+                <div style="background: white; padding: 20px; border-radius: 10px;">
+                    <h4>Configuración de Búsqueda</h4>
+                    <label style="display: block; margin-bottom: 10px;">
+                        <input type="checkbox" id="enableWebSearch" checked> 
+                        🌐 Habilitar búsqueda web automática
+                    </label>
+                    <label style="display: block; margin-bottom: 15px;">
+                        <input type="range" id="maxDocs" min="3" max="15" value="8" style="width: 100%;">
+                        📊 Documentos máximos: <span id="maxDocsValue">8</span>
+                    </label>
+                    <label style="display: block;">
+                        <input type="range" id="minScore" min="0.3" max="0.9" step="0.1" value="0.6" style="width: 100%;">
+                        🎯 Relevancia mínima: <span id="minScoreValue">0.6</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sección de Chat -->
+        <div class="section chat-section">
+            <h2>💬 Consulta Inteligente</h2>
+            
+            <textarea class="question-input" id="questionInput" 
+                placeholder="Escribe tu pregunta aquí... El sistema buscará primero en tus documentos y luego en la web si es necesario."></textarea>
+            
+            <button class="btn btn-primary" id="askQuestion">
+                🔍 Buscar Respuesta
+            </button>
+
+            <div class="loading" id="loading">
+                <div class="loading-spinner"></div>
+                <p>Buscando información...</p>
+            </div>
+
+            <div class="answer-section" id="answerSection" style="display: none;">
+                <h3>📋 Respuesta</h3>
+                <div class="answer-content" id="answerContent"></div>
+                
+                <div class="sources" id="sources">
+                    <h4>📚 Fuentes Consultadas</h4>
+                    <div id="sourcesList"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Estado de la aplicación
+        let selectedDocuments = new Set();
+
+        // Elementos DOM
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('fileInput');
+        const documentList = document.getElementById('documentList');
+        const questionInput = document.getElementById('questionInput');
+        const askButton = document.getElementById('askQuestion');
+        const loading = document.getElementById('loading');
+        const answerSection = document.getElementById('answerSection');
+        const answerContent = document.getElementById('answerContent');
+        const sourcesList = document.getElementById('sourcesList');
+        const refreshDocs = document.getElementById('refreshDocs');
+        const deleteSelected = document.getElementById('deleteSelected');
+        const clearAll = document.getElementById('clearAll');
+        const selectedActions = document.getElementById('selectedActions');
+        const systemStatus = document.getElementById('systemStatus');
+
+        // Sliders
+        const maxDocsSlider = document.getElementById('maxDocs');
+        const minScoreSlider = document.getElementById('minScore');
+        const maxDocsValue = document.getElementById('maxDocsValue');
+        const minScoreValue = document.getElementById('minScoreValue');
+
+        // Eventos de drag and drop
+        fileUpload.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        });
+
+        fileUpload.addEventListener('dragleave', () => {
+            fileUpload.classList.remove('dragover');
+        });
+
+        fileUpload.addEventListener('drop', (e) => {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        fileUpload.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // Sliders
+        maxDocsSlider.addEventListener('input', (e) => {
+            maxDocsValue.textContent = e.target.value;
+        });
+
+        minScoreSlider.addEventListener('input', (e) => {
+            minScoreValue.textContent = e.target.value;
+        });
+
+        // Eventos de botones
+        refreshDocs.addEventListener('click', loadDocuments);
+        askButton.addEventListener('click', askQuestion);
+        deleteSelected.addEventListener('click', deleteSelectedDocuments);
+        clearAll.addEventListener('click', clearAllDocuments);
+
+        // Funciones principales
+        async function handleFiles(files) {
+            const formData = new FormData();
+            
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            try {
+                showLoading(true);
+                const response = await fetch('/upload_files', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    alert(`✅ ${result.uploaded} archivos cargados exitosamente`);
+                    loadDocuments();
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error subiendo archivos: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch('/get_documents');
+                const documents = await response.json();
+                
+                displayDocuments(documents);
+                updateStats(documents);
+            } catch (error) {
+                console.error('Error cargando documentos:', error);
+            }
+        }
+
+        function displayDocuments(documents) {
+            documentList.innerHTML = '';
+            
+            if (documents.length === 0) {
+                documentList.innerHTML = '<div style="text-align: center; color: #666; padding: 20px;">No hay documentos cargados</div>';
+                return;
+            }
+
+            documents.forEach(doc => {
+                const docElement = document.createElement('div');
+                docElement.className = 'document-item';
+                
+                const typeIcon = doc.type === 'WEB' ? '🌐' : '📄';
+                
+                docElement.innerHTML = `
+                    <div class="document-info">
+                        <div class="document-name">${typeIcon} ${doc.source}</div>
+                        <div class="document-meta">${doc.chunks} fragmentos • ${doc.tokens} tokens</div>
+                    </div>
+                    <div class="document-actions">
+                        <input type="checkbox" class="checkbox doc-checkbox" data-source="${doc.source}">
+                        <button class="btn btn-danger btn-small" onclick="deleteDocument('${doc.source}')">
+                            🗑️
+                        </button>
+                    </div>
+                `;
+                
+                documentList.appendChild(docElement);
+            });
+
+            // Agregar eventos a checkboxes
+            const checkboxes = document.querySelectorAll('.doc-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', updateSelectedDocuments);
+            });
+        }
+
+        function updateSelectedDocuments() {
+            const checkboxes = document.querySelectorAll('.doc-checkbox:checked');
+            selectedDocuments.clear();
+            
+            checkboxes.forEach(checkbox => {
+                selectedDocuments.add(checkbox.dataset.source);
+            });
+
+            selectedActions.style.display = selectedDocuments.size > 0 ? 'block' : 'none';
+        }
+
+        async function deleteDocument(source) {
+            if (!confirm(`¿Estás seguro de eliminar "${source}"?`)) return;
+
+            try {
+                const response = await fetch('/delete_documents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sources: [source] })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    loadDocuments();
+                    alert('✅ Documento eliminado');
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error eliminando documento: ${error.message}`);
+            }
+        }
+
+        async function deleteSelectedDocuments() {
+            if (selectedDocuments.size === 0) return;
+            
+            if (!confirm(`¿Eliminar ${selectedDocuments.size} documentos seleccionados?`)) return;
+
+            try {
+                const response = await fetch('/delete_documents', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ sources: Array.from(selectedDocuments) })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    selectedDocuments.clear();
+                    selectedActions.style.display = 'none';
+                    loadDocuments();
+                    alert('✅ Documentos eliminados');
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error eliminando documentos: ${error.message}`);
+            }
+        }
+
+        async function clearAllDocuments() {
+            if (!confirm('⚠️ ¿Estás seguro de eliminar TODOS los documentos?')) return;
+
+            try {
+                const response = await fetch('/clear_database', {
+                    method: 'POST'
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    selectedDocuments.clear();
+                    selectedActions.style.display = 'none';
+                    loadDocuments();
+                    alert('✅ Base de datos limpiada');
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error limpiando base de datos: ${error.message}`);
+            }
+        }
+
+        async function askQuestion() {
+            const question = questionInput.value.trim();
+            if (!question) {
+                alert('Por favor escribe una pregunta');
+                return;
+            }
+
+            const maxDocs = parseInt(maxDocsSlider.value);
+            const minScore = parseFloat(minScoreSlider.value);
+            const enableWeb = document.getElementById('enableWebSearch').checked;
+
+            try {
+                showLoading(true);
+                answerSection.style.display = 'none';
+
+                const response = await fetch('/ask_question', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        question: question,
+                        max_docs: maxDocs,
+                        min_score: minScore,
+                        enable_web_search: enableWeb
+                    })
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayAnswer(result.data);
+                } else {
+                    alert(`❌ Error: ${result.error}`);
+                }
+            } catch (error) {
+                alert(`❌ Error: ${error.message}`);
+            } finally {
+                showLoading(false);
+            }
+        }
+
+        function displayAnswer(data) {
+            answerContent.innerHTML = formatAnswer(data.answer);
+            
+            // Mostrar fuentes
+            sourcesList.innerHTML = '';
+            
+            if (data.sources && data.sources.length > 0) {
+                data.sources.forEach((source, index) => {
+                    const sourceElement = document.createElement('div');
+                    sourceElement.className = 'source-item';
+                    
+                    const typeIcon = source.source.startsWith('WEB:') ? '🌐' : '📄';
+                    const relevance = (source.score * 100).toFixed(1);
+                    
+                    sourceElement.innerHTML = `
+                        <div class="source-title">${typeIcon} ${source.source}</div>
+                        <div class="source-type">Relevancia: ${relevance}% • Fragmento ${source.chunk_index + 1}</div>
+                    `;
+                    
+                    sourcesList.appendChild(sourceElement);
+                });
+            } else {
+                sourcesList.innerHTML = '<div style="color: #666;">No se encontraron fuentes específicas</div>';
+            }
+
+            answerSection.style.display = 'block';
+            answerSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function formatAnswer(answer) {
+            // Formatear la respuesta con markdown básico
+            return answer
+                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                .replace(/\*(.*?)\*/g, '<em>$1</em>')
+                .replace(/\n\n/g, '</p><p>')
+                .replace(/\n/g, '<br>');
+        }
+
+        function updateStats(documents) {
+            const totalDocs = documents.length;
+            const totalChunks = documents.reduce((sum, doc) => sum + doc.chunks, 0);
+            
+            document.getElementById('totalDocs').textContent = totalDocs;
+            document.getElementById('totalChunks').textContent = totalChunks;
+        }
+
+        function showLoading(show) {
+            loading.style.display = show ? 'block' : 'none';
+            if (show) {
+                answerSection.style.display = 'none';
+            }
+        }
+
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/system_status');
+                const status = await response.json();
+                
+                let statusHtml = '';
+                statusHtml += status.azure_connection ? '✅ Azure OpenAI' : '❌ Azure OpenAI';
+                statusHtml += '<br>';
+                statusHtml += status.google_search ? '✅ Google Search' : '⚠️ Google Search (opcional)';
+                statusHtml += '<br>';
+                statusHtml += `📊 Embedding: ${status.embedding_model}`;
+                
+                systemStatus.innerHTML = statusHtml;
+            } catch (error) {
+                systemStatus.innerHTML = '❌ Error verificando estado del sistema';
+            }
+        }
+
+        // Inicialización
+        document.addEventListener('DOMContentLoaded', () => {
+            loadDocuments();
+            checkSystemStatus();
+        });
+    </script>
+</body>
+</html>
