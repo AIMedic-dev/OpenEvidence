@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Medical RAG System</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            text-align: center;
+            margin-bottom: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            color: #4a5568;
+            margin-bottom: 10px;
+            font-size: 2.5rem;
+            font-weight: 700;
+        }
+
+        .header p {
+            color: #718096;
+            font-size: 1.1rem;
+            line-height: 1.6;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 30px;
+            flex: 1;
+        }
+
+        .chat-section {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .chat-header {
+            background: linear-gradient(90deg, #4299e1, #667eea);
+            color: white;
+            padding: 20px 30px;
+            font-weight: 600;
+            font-size: 1.2rem;
+        }
+
+        .chat-messages {
+            flex: 1;
+            padding: 20px 30px;
+            overflow-y: auto;
+            max-height: 500px;
+            min-height: 300px;
+        }
+
+        .message {
+            margin-bottom: 20px;
+            animation: fadeIn 0.3s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .message.user {
+            text-align: right;
+        }
+
+        .message.assistant {
+            text-align: left;
+        }
+
+        .message-bubble {
+            display: inline-block;
+            max-width: 80%;
+            padding: 15px 20px;
+            border-radius: 20px;
+            word-wrap: break-word;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .message.user .message-bubble {
+            background: linear-gradient(135deg, #4299e1, #667eea);
+            color: white;
+        }
+
+        .message.assistant .message-bubble {
+            background: #f7fafc;
+            color: #2d3748;
+            border: 1px solid #e2e8f0;
+        }
+
+        .message-meta {
+            font-size: 0.8rem;
+            margin-top: 8px;
+            opacity: 0.7;
+        }
+
+        .sources {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .source-item {
+            background: #edf2f7;
+            padding: 8px 12px;
+            border-radius: 8px;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .confidence-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+
+        .confidence-high { background: #c6f6d5; color: #22543d; }
+        .confidence-medium { background: #fef5e7; color: #744210; }
+        .confidence-low { background: #fed7d7; color: #742a2a; }
+
+        .chat-input-section {
+            padding: 20px 30px;
+            background: #f7fafc;
+            border-top: 1px solid #e2e8f0;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 15px 20px;
+            border: 2px solid #e2e8f0;
+            border-radius: 25px;
+            font-size: 1rem;
+            outline: none;
+            transition: border-color 0.3s ease;
+        }
+
+        .chat-input:focus {
+            border-color: #4299e1;
+        }
+
+        .send-btn {
+            background: linear-gradient(135deg, #4299e1, #667eea);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+        }
+
+        .send-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .send-btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .panel {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            background: linear-gradient(90deg, #38b2ac, #4299e1);
+            color: white;
+            padding: 15px 20px;
+            font-weight: 600;
+        }
+
+        .panel-content {
+            padding: 20px;
+        }
+
+        .file-upload {
+            border: 2px dashed #cbd5e0;
+            border-radius: 12px;
+            padding: 30px 20px;
+            text-align: center;
+            transition: border-color 0.3s ease;
+            cursor: pointer;
+        }
+
+        .file-upload:hover {
+            border-color: #4299e1;
+        }
+
+        .file-upload.dragover {
+            border-color: #4299e1;
+            background: rgba(66, 153, 225, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+            opacity: 0.6;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #4299e1, #667eea);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: transform 0.2s ease;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn.danger {
+            background: linear-gradient(135deg, #f56565, #e53e3e);
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+
+        .status-online { background: #48bb78; }
+        .status-offline { background: #f56565; }
+
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #4299e1;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .alert {
+            padding: 12px 16px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 0.9rem;
+        }
+
+        .alert-success {
+            background: #c6f6d5;
+            color: #22543d;
+            border: 1px solid #9ae6b4;
+        }
+
+        .alert-error {
+            background: #fed7d7;
+            color: #742a2a;
+            border: 1px solid #feb2b2;
+        }
+
+        .documents-list {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .document-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .document-item:last-child {
+            border-bottom: none;
+        }
+
+        .delete-doc-btn {
+            background: #f56565;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🏥 Medical RAG System</h1>
+            <p>Sistema inteligente de consultas médicas.</p>
+        </div>
+
+        <div class="main-content">
+            <div class="chat-section">
+                <div class="chat-header">
+                    <span id="system-status" class="status-indicator status-offline"></span>
+                    Consultas Médicas
+                </div>
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message assistant">
+                        <div class="message-bubble">
+                            ¡Hola! Soy tu asistente médico de IA. Puedes hacerme consultas sobre temas médicos y te proporcionaré respuestas basadas en evidencia científica.
+                        </div>
+                    </div>
+                </div>
+                <div class="chat-input-section">
+                    <div class="input-group">
+                        <input type="text" class="chat-input" id="chatInput" placeholder="Escribe tu consulta médica aquí..." />
+                        <button class="send-btn" id="sendBtn">Enviar</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar">
+                <div class="panel">
+                    <div class="panel-header">📁 Subir Documentos</div>
+                    <div class="panel-content">
+                        <div class="file-upload" id="fileUpload">
+                            <div class="upload-icon">📄</div>
+                            <p>Arrastra archivos aquí o haz clic para seleccionar</p>
+                            <small>PDF, DOCX, TXT, CSV, XLSX (max 100MB)</small>
+                        </div>
+                        <input type="file" class="file-input" id="fileInput" accept=".pdf,.docx,.doc,.txt,.csv,.xlsx,.xls" />
+                        <div id="uploadAlert"></div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-header">📊 Base de Datos</div>
+                    <div class="panel-content">
+                        <div id="systemInfo">
+                            <p><strong>Documentos:</strong> <span id="docCount">--</span></p>
+                            <p><strong>Estado:</strong> <span id="systemStatusText">Verificando...</span></p>
+                        </div>
+                        <button class="btn" id="refreshBtn">Actualizar Estado</button>
+                        <button class="btn" id="listDocsBtn">Ver Documentos</button>
+                        <button class="btn danger" id="clearAllBtn">Limpiar Todo</button>
+                        
+                        <div id="documentsList" class="documents-list" style="display: none;">
+                            <h4>Documentos en la BD:</h4>
+                            <div id="documentsContent"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        
+        // Elements
+        const chatMessages = document.getElementById('chatMessages');
+        const chatInput = document.getElementById('chatInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const fileUpload = document.getElementById('fileUpload');
+        const fileInput = document.getElementById('fileInput');
+        const uploadAlert = document.getElementById('uploadAlert');
+        const systemStatus = document.getElementById('system-status');
+        const systemStatusText = document.getElementById('systemStatusText');
+        const docCount = document.getElementById('docCount');
+        const refreshBtn = document.getElementById('refreshBtn');
+        const clearAllBtn = document.getElementById('clearAllBtn');
+        const listDocsBtn = document.getElementById('listDocsBtn');
+        const documentsList = document.getElementById('documentsList');
+        const documentsContent = document.getElementById('documentsContent');
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            checkSystemHealth();
+            setupEventListeners();
+        });
+
+        function setupEventListeners() {
+            // Chat
+            sendBtn.addEventListener('click', sendMessage);
+            chatInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') sendMessage();
+            });
+
+            // File upload
+            fileUpload.addEventListener('click', () => fileInput.click());
+            fileUpload.addEventListener('dragover', handleDragOver);
+            fileUpload.addEventListener('dragleave', handleDragLeave);
+            fileUpload.addEventListener('drop', handleDrop);
+            fileInput.addEventListener('change', handleFileSelect);
+
+            // System controls
+            refreshBtn.addEventListener('click', checkSystemHealth);
+            clearAllBtn.addEventListener('click', clearAllDocuments);
+            listDocsBtn.addEventListener('click', toggleDocumentsList);
+        }
+
+        async function checkSystemHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    systemStatus.className = 'status-indicator status-online';
+                    systemStatusText.textContent = 'En línea';
+                    docCount.textContent = data.data.database_documents;
+                } else {
+                    systemStatus.className = 'status-indicator status-offline';
+                    systemStatusText.textContent = 'Error';
+                }
+            } catch (error) {
+                systemStatus.className = 'status-indicator status-offline';
+                systemStatusText.textContent = 'Desconectado';
+                console.error('Health check failed:', error);
+            }
+        }
+
+        async function sendMessage() {
+            const message = chatInput.value.trim();
+            if (!message) return;
+
+            // Add user message
+            addMessage('user', message);
+            chatInput.value = '';
+            sendBtn.disabled = true;
+            sendBtn.innerHTML = '<div class="loading"></div>';
+
+            try {
+                const response = await fetch(`${API_BASE}/ask`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ question: message })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    addMedicalResponse(data.data);
+                } else {
+                    addMessage('assistant', `Error: ${data.message}`);
+                }
+            } catch (error) {
+                addMessage('assistant', 'Error de conexión. Verifica que el servidor esté funcionando.');
+                console.error('Error sending message:', error);
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.textContent = 'Enviar';
+            }
+        }
+
+        function addMessage(sender, content) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${sender}`;
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">${content}</div>
+                <div class="message-meta">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addMedicalResponse(data) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message assistant';
+            
+            const confidenceClass = data.confidence >= 0.8 ? 'confidence-high' : 
+                                  data.confidence >= 0.5 ? 'confidence-medium' : 'confidence-low';
+            const confidenceText = data.confidence >= 0.8 ? 'Alta' : 
+                                 data.confidence >= 0.5 ? 'Media' : 'Baja';
+            
+            let sourcesHtml = '';
+            if (data.sources && data.sources.length > 0) {
+                sourcesHtml = `
+                    <div class="sources">
+                        <strong>Fuentes consultadas:</strong>
+                        ${data.sources.map(source => `
+                            <div class="source-item">
+                                <strong>${source.source}</strong><br>
+                                <small>Similaridad: ${(source.similarity_score * 100).toFixed(1)}%</small><br>
+                                <em>${source.excerpt}</em>
+                            </div>
+                        `).join('')}
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                <div class="message-bubble">
+                    ${data.answer}
+                    <div class="message-meta">
+                        Confiabilidad: <span class="confidence-badge ${confidenceClass}">${confidenceText} (${(data.confidence * 100).toFixed(1)}%)</span>
+                        | Nivel de evidencia: ${data.evidence_level}
+                        | Fuentes: ${data.sources_summary.total_sources}
+                    </div>
+                    ${sourcesHtml}
+                </div>
+                <div class="message-meta">${new Date().toLocaleTimeString()}</div>
+            `;
+            
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function handleDragOver(e) {
+            e.preventDefault();
+            fileUpload.classList.add('dragover');
+        }
+
+        function handleDragLeave(e) {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+        }
+
+        function handleDrop(e) {
+            e.preventDefault();
+            fileUpload.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                uploadFile(files[0]);
+            }
+        }
+
+        function handleFileSelect(e) {
+            const file = e.target.files[0];
+            if (file) {
+                uploadFile(file);
+            }
+        }
+
+        async function uploadFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            showAlert('Subiendo archivo...', 'info');
+
+            try {
+                const response = await fetch(`${API_BASE}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert(`Archivo "${file.name}" subido exitosamente`, 'success');
+                    checkSystemHealth(); // Update document count
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Error de conexión al subir archivo', 'error');
+                console.error('Upload error:', error);
+            }
+
+            fileInput.value = '';
+        }
+
+        function showAlert(message, type) {
+            uploadAlert.innerHTML = `<div class="alert alert-${type === 'error' ? 'error' : 'success'}">${message}</div>`;
+            setTimeout(() => {
+                uploadAlert.innerHTML = '';
+            }, 5000);
+        }
+
+        async function clearAllDocuments() {
+            if (!confirm('¿Estás seguro de que quieres eliminar TODOS los documentos de la base de datos?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/documents?confirm=true`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert('Base de datos limpiada exitosamente', 'success');
+                    checkSystemHealth();
+                    documentsList.style.display = 'none';
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Error de conexión', 'error');
+                console.error('Clear all error:', error);
+            }
+        }
+
+        async function toggleDocumentsList() {
+            if (documentsList.style.display === 'none') {
+                await loadDocuments();
+                documentsList.style.display = 'block';
+                listDocsBtn.textContent = 'Ocultar Documentos';
+            } else {
+                documentsList.style.display = 'none';
+                listDocsBtn.textContent = 'Ver Documentos';
+            }
+        }
+
+        async function loadDocuments() {
+            try {
+                const response = await fetch(`${API_BASE}/documents`);
+                const data = await response.json();
+
+                if (data.success) {
+                    let html = '';
+                    data.data.sources.forEach(source => {
+                        html += `
+                            <div class="document-item">
+                                <div>
+                                    <strong>${source.source}</strong><br>
+                                    <small>${source.chunk_count} fragmentos</small>
+                                </div>
+                                <button class="delete-doc-btn" onclick="deleteDocument('${source.source}')">
+                                    Eliminar
+                                </button>
+                            </div>
+                        `;
+                    });
+                    documentsContent.innerHTML = html || '<p>No hay documentos</p>';
+                } else {
+                    documentsContent.innerHTML = `<p>Error: ${data.message}</p>`;
+                }
+            } catch (error) {
+                documentsContent.innerHTML = '<p>Error cargando documentos</p>';
+                console.error('Load documents error:', error);
+            }
+        }
+
+        async function deleteDocument(sourceName) {
+            if (!confirm(`¿Eliminar el documento "${sourceName}"?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/documents/${encodeURIComponent(sourceName)}`, {
+                    method: 'DELETE'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    showAlert(`Documento "${sourceName}" eliminado`, 'success');
+                    loadDocuments();
+                    checkSystemHealth();
+                } else {
+                    showAlert(`Error: ${data.message}`, 'error');
+                }
+            } catch (error) {
+                showAlert('Error de conexión', 'error');
+                console.error('Delete document error:', error);
+            }
+        }
+    </script>
+</body>
+</html>
