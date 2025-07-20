@@ -484,7 +484,7 @@
                 if (data.success) {
                     systemStatus.className = 'status-indicator status-online';
                     systemStatusText.textContent = 'En línea';
-                    docCount.textContent = data.data.database_documents;
+                    docCount.textContent = data.data.total_documents || data.data.database_documents || 0;
                 } else {
                     systemStatus.className = 'status-indicator status-offline';
                     systemStatusText.textContent = 'Error';

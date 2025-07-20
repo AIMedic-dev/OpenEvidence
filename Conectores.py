@@ -101,7 +101,7 @@ def get_status():
         
         for doc in medical_rag.documents_metadata:
             source = doc['source']
-            if source.startswith('MED_WEB:'):
+            if source.startswith('WEB:'):  # Corregido: usar 'WEB:' no 'MED_WEB:'
                 web_sources += 1
             else:
                 local_sources += 1
@@ -114,11 +114,12 @@ def get_status():
             'total_documents': len(medical_rag.documents_metadata),
             'faiss_index_size': medical_rag.index.ntotal if medical_rag.index else 0,
             'local_sources': local_sources,
-            'web_medical_sources': web_sources,
+            'web_sources': web_sources,  # Corregido: cambiar nombre
             'sources_breakdown': sources,
-            'trusted_medical_domains': len(medical_rag.TRUSTED_MEDICAL_DOMAINS),
-            'medical_keywords': len(medical_rag.MEDICAL_KEYWORDS),
-            'storage_path': medical_rag.storage_path
+            'storage_path': medical_rag.storage_path,
+            'embedding_deployment': medical_rag.embedding_deployment,
+            'chunk_size': medical_rag.chunk_size,
+            'chunk_overlap': medical_rag.chunk_overlap
         }
         
         return create_response(
@@ -176,7 +177,7 @@ def ask_medical_question():
             'sources_summary': {
                 'total_sources': len(result['sources']),
                 'local_sources': result['local_sources'],
-                'web_medical_sources': result['web_medical_sources']
+                'web_sources': result['web_sources']  # Corregido: cambiar nombre
             },
             'sources': [
                 {
@@ -184,6 +185,8 @@ def ask_medical_question():
                     'section': doc.get('section', ''),
                     'similarity_score': doc['similarity_score'],
                     'tokens': doc.get('tokens', 0),
+                    'doc_id': doc.get('doc_id', ''),
+                    'chunk_index': doc.get('chunk_index', 0),
                     'excerpt': doc['text'][:300] + "..." if len(doc['text']) > 300 else doc['text']
                 }
                 for doc in result['sources']
@@ -244,6 +247,7 @@ def search_documents():
                     'similarity_score': doc['similarity_score'],
                     'tokens': doc.get('tokens', 0),
                     'chunk_index': doc.get('chunk_index', 0),
+                    'doc_id': doc.get('doc_id', ''),
                     'excerpt': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text']
                 }
                 for doc in results
@@ -259,7 +263,69 @@ def search_documents():
     except Exception as e:
         return handle_error(e, "Error en búsqueda de documentos")
 
-@app.route('/medical-search', methods=['POST'])
+@app.route('/enhanced-search', methods=['POST'])
+def enhanced_medical_search():
+    """Realizar búsqueda mejorada con fuentes web cuando sea necesario"""
+    try:
+        if not medical_rag:
+            return create_response(
+                success=False,
+                message="Sistema RAG médico no disponible",
+                status_code=503
+            )
+        
+        data = request.get_json()
+        
+        if not data or 'query' not in data:
+            return create_response(
+                success=False,
+                message="Se requiere el campo 'query' en el JSON",
+                status_code=400
+            )
+        
+        query = data['query'].strip()
+        k = data.get('k', 10)
+        
+        if not query:
+            return create_response(
+                success=False,
+                message="La consulta no puede estar vacía",
+                status_code=400
+            )
+        
+        # Realizar búsqueda mejorada
+        logger.info(f"🔍 Búsqueda mejorada para: {query[:100]}...")
+        results = medical_rag.enhanced_medical_search(query, k)
+        
+        # Preparar respuesta
+        response_data = {
+            'query': query,
+            'total_results': len(results),
+            'results': [
+                {
+                    'source': doc['source'],
+                    'section': doc.get('section', ''),
+                    'similarity_score': doc['similarity_score'],
+                    'tokens': doc.get('tokens', 0),
+                    'chunk_index': doc.get('chunk_index', 0),
+                    'doc_id': doc.get('doc_id', ''),
+                    'is_web_source': doc['source'].startswith('WEB:'),
+                    'excerpt': doc['text'][:200] + "..." if len(doc['text']) > 200 else doc['text']
+                }
+                for doc in results
+            ]
+        }
+        
+        return create_response(
+            success=True,
+            message=f"Búsqueda mejorada completada: {len(results)} documentos encontrados",
+            data=response_data
+        )
+        
+    except Exception as e:
+        return handle_error(e, "Error en búsqueda mejorada")
+
+@app.route('/web-search', methods=['POST'])
 def medical_web_search():
     """Realizar búsqueda en fuentes médicas web"""
     try:
@@ -317,6 +383,47 @@ def medical_web_search():
         
     except Exception as e:
         return handle_error(e, "Error en búsqueda médica web")
+
+@app.route('/validate-source', methods=['POST'])
+def validate_medical_source():
+    """Validar fuente médica"""
+    try:
+        if not medical_rag:
+            return create_response(
+                success=False,
+                message="Sistema RAG médico no disponible",
+                status_code=503
+            )
+        
+        data = request.get_json()
+        
+        if not data or 'source' not in data:
+            return create_response(
+                success=False,
+                message="Se requiere el campo 'source' en el JSON",
+                status_code=400
+            )
+        
+        source = data['source'].strip()
+        
+        if not source:
+            return create_response(
+                success=False,
+                message="La fuente no puede estar vacía",
+                status_code=400
+            )
+        
+        # Validar fuente
+        validation_result = medical_rag.validate_medical_source(source)
+        
+        return create_response(
+            success=True,
+            message="Validación de fuente completada",
+            data=validation_result
+        )
+        
+    except Exception as e:
+        return handle_error(e, "Error validando fuente")
 
 # ========== ENDPOINTS DE GESTIÓN DE DOCUMENTOS ==========
 
@@ -381,7 +488,7 @@ def upload_file():
             else:
                 return create_response(
                     success=False,
-                    message=f"No se pudo procesar el archivo '{filename}'. Verifique que contenga información médica relevante.",
+                    message=f"No se pudo procesar el archivo '{filename}'. Verifique el contenido del archivo.",
                     status_code=400
                 )
         
@@ -466,29 +573,45 @@ def list_documents():
         
         # Agrupar por fuente
         sources = {}
+        web_sources_count = 0
+        local_sources_count = 0
+        
         for doc in medical_rag.documents_metadata:
             source = doc['source']
+            
+            # Contadores por tipo de fuente
+            if source.startswith('WEB:'):
+                web_sources_count += 1
+            else:
+                local_sources_count += 1
+            
             if source not in sources:
                 sources[source] = {
                     'source': source,
                     'chunk_count': 0,
                     'total_tokens': 0,
                     'sections': set(),
-                    'is_web_source': source.startswith('MED_WEB:')
+                    'is_web_source': source.startswith('WEB:'),
+                    'doc_ids': []
                 }
             
             sources[source]['chunk_count'] += 1
             sources[source]['total_tokens'] += doc.get('tokens', 0)
             if doc.get('section'):
                 sources[source]['sections'].add(doc.get('section'))
+            if doc.get('doc_id'):
+                sources[source]['doc_ids'].append(doc.get('doc_id'))
         
-        # Convertir sets a listas
+        # Convertir sets a listas y limpiar doc_ids duplicados
         for source_info in sources.values():
             source_info['sections'] = list(source_info['sections'])
+            source_info['doc_ids'] = list(set(source_info['doc_ids']))
         
         response_data = {
             'total_sources': len(sources),
             'total_chunks': len(medical_rag.documents_metadata),
+            'local_sources_count': local_sources_count,
+            'web_sources_count': web_sources_count,
             'sources': list(sources.values())
         }
         
@@ -625,7 +748,19 @@ def internal_server_error(error):
 
 @app.route('/', methods=['GET'])
 def home():
-    return render_template('InterfazAgente.html')
+    """Página principal con interfaz web (si existe el template)"""
+    try:
+        return render_template('InterfazAgente.html')
+    except:
+        return create_response(
+            success=True,
+            message="Medical RAG System API - Sistema funcionando correctamente",
+            data={
+                'api_version': '2.0',
+                'system_name': 'Medical RAG System',
+                'endpoints': '/api-info'
+            }
+        )[0]  # Solo devolver el JSON, no la tupla
 
 if __name__ == '__main__':
     host = os.getenv('HOST', '0.0.0.0')
@@ -634,5 +769,7 @@ if __name__ == '__main__':
     
     logger.info(f"🚀 Iniciando Medical RAG System API en {host}:{port}")
     logger.info(f"🏥 Debug mode: {debug}")
+    logger.info(f"📁 Upload folder: {UPLOAD_FOLDER}")
+    logger.info(f"📄 Supported file types: {ALLOWED_EXTENSIONS}")
     
     app.run(host=host, port=port, debug=debug)
