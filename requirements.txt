@@ -1,0 +1,13 @@
+faiss_cpu==1.11.0.post1
+Flask==2.3.2
+flask_cors==6.0.1
+google_api_python_client==2.176.0
+numpy==2.3.1
+openai==1.97.0
+pandas==2.3.1
+PyPDF2==3.0.1
+python-dotenv==1.1.1
+python_docx==1.2.0
+selenium==4.34.2
+trafilatura==2.0.0
+Werkzeug==3.1.3
